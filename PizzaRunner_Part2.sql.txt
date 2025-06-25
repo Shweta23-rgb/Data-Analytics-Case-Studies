@@ -1,0 +1,74 @@
+-- QUESTION 1: 
+
+SELECT DATE_TRUNC('week', registration_date) AS week_start,
+       COUNT(*) AS runners_signed_up
+FROM pizza_runner.runners
+GROUP BY week_start
+ORDER BY week_start;
+
+--QUESTION 2: 
+SELECT runner_id,
+       ROUND(AVG(CAST(
+         REGEXP_REPLACE(duration, '[^0-9]', '', 'g'
+       )::INT)) AS avg_pickup_time_mins
+FROM pizza_runner.runner_orders
+WHERE cancellation IS NULL AND duration IS NOT NULL
+GROUP BY runner_id
+ORDER BY runner_id;
+
+--3:
+WITH pizza_count AS (
+  SELECT order_id, COUNT(*) AS total_pizzas
+  FROM pizza_runner.customer_orders
+  GROUP BY order_id
+),
+cleaned_runner_orders AS (
+  SELECT order_id,
+         CAST(REGEXP_REPLACE(duration, '[^0-9]', '', 'g') AS INT) AS prep_time
+  FROM pizza_runner.runner_orders
+  WHERE cancellation IS NULL AND duration IS NOT NULL
+)
+SELECT p.total_pizzas, ROUND(AVG(r.prep_time)) AS avg_prep_time
+FROM pizza_count p
+JOIN cleaned_runner_orders r ON p.order_id = r.order_id
+GROUP BY p.total_pizzas
+ORDER BY p.total_pizzas;
+
+
+--4:
+
+WITH cleaned_distances AS (
+  SELECT order_id,
+         CAST(REGEXP_REPLACE(distance, '[^0-9.]', '', 'g') AS FLOAT) AS distance_km
+  FROM pizza_runner.runner_orders
+  WHERE cancellation IS NULL AND distance IS NOT NULL
+),
+order_to_customer AS (
+  SELECT DISTINCT order_id, customer_id
+  FROM pizza_runner.customer_orders
+)
+SELECT o.customer_id,
+       ROUND(AVG(d.distance_km), 2) AS avg_distance
+FROM cleaned_distances d
+JOIN order_to_customer o ON d.order_id = o.order_id
+GROUP BY o.customer_id
+ORDER BY o.customer_id;
+
+--5: 
+
+SELECT MAX(cleaned_time) - MIN(cleaned_time) AS delivery_time_range_mins
+FROM (
+  SELECT CAST(REGEXP_REPLACE(duration, '[^0-9]', '', 'g') AS INT) AS cleaned_time
+  FROM pizza_runner.runner_orders
+  WHERE cancellation IS NULL AND duration IS NOT NULL
+) sub;
+
+--7: 
+SELECT runner_id,
+       COUNT(*) FILTER (WHERE cancellation IS NULL) * 100.0 / COUNT(*) AS success_percentage
+FROM pizza_runner.runner_orders
+GROUP BY runner_id
+ORDER BY runner_id;
+
+
+
